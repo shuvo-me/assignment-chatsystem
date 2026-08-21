@@ -10,6 +10,7 @@ import React, {
 import { chatService } from "../services/chatService";
 import { authService } from "../services/auth.service";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import {
   Conversation,
   Message,
@@ -104,6 +105,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   const logoutMutation = authService.useLogout();
   const meQuery = authService.useMe();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const currentUser = pendingUser ?? meQuery.data ?? chatService.getCurrentUser();
   const isAuthenticated = Boolean(pendingUser || meQuery.data);
@@ -184,6 +186,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     setActiveConversation(null);
     setMessages([]);
     setShowLoginModal(false);
+    router.replace("/login");
   };
 
   const sendMessage = async (
