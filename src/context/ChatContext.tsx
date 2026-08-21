@@ -8,9 +8,10 @@ import React, {
   useState,
 } from "react";
 import { chatService } from "../services/chatService";
+import { authService } from "../services/auth.service";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Conversation,
-  LoginPayload,
   Message,
   MessageType,
   User,
@@ -45,10 +46,9 @@ interface ChatContextType {
   setShowNewGroupModal: (show: boolean) => void;
   setShowSearchModal: (show: boolean) => void;
   setShowLoginModal: (show: boolean) => void;
-  setIsAuthenticated: (auth: boolean) => void;
   clearError: () => void;
 
-  login: (payload: LoginPayload) => Promise<void>;
+  completeLogin: (user: User) => void;
   logout: () => Promise<void>;
   selectConversation: (conversationId: string | null) => Promise<void>;
   sendMessage: (
@@ -76,12 +76,7 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [currentUser, setCurrentUser] = useState<User>(
-    chatService.getCurrentUser(),
-  );
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
-    chatService.isAuthenticated(),
-  );
+  const [pendingUser, setPendingUser] = useState<User | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] =
     useState<Conversation | null>(null);
@@ -105,6 +100,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   const [showSearchModal, setShowSearchModal] = useState<boolean>(false);
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const logoutMutation = authService.useLogout();
+  const meQuery = authService.useMe();
+  const queryClient = useQueryClient();
+
+  const currentUser = pendingUser ?? meQuery.data ?? chatService.getCurrentUser();
+  const isAuthenticated = Boolean(pendingUser || meQuery.data);
 
   // Load conversations initially
   const refreshConversations = useCallback(async () => {
@@ -165,23 +167,20 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const login = async (payload: LoginPayload) => {
-    try {
-      const user = await chatService.login(payload);
-      setCurrentUser(user);
-      setIsAuthenticated(true);
-      setShowLoginModal(false);
-      await refreshConversations();
-      document.cookie = `unlocked=true; path=/; max-age=3600; SameSite=Lax`;
-    } catch (err: any) {
-      setError(err.message || "Login failed");
-      throw err;
-    }
+  const completeLogin = (user: User) => {
+    setPendingUser(user);
+    setShowLoginModal(false);
+    refreshConversations();
   };
 
   const logout = async () => {
-    await chatService.logout();
-    setIsAuthenticated(false);
+    try {
+      await logoutMutation.mutateAsync();
+    } catch {
+      // clear local session even if the request fails
+    }
+    setPendingUser(null);
+    queryClient.resetQueries({ queryKey: ["auth", "me"] });
     setActiveConversation(null);
     setMessages([]);
     setShowLoginModal(false);
@@ -328,7 +327,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const resetAllData = () => {
     chatService.resetToDefaults();
-    setCurrentUser(chatService.getCurrentUser());
+    setPendingUser(null);
     setActiveConversation(null);
     setMessages([]);
     setReplyingTo(null);
@@ -366,9 +365,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         setShowNewGroupModal,
         setShowSearchModal,
         setShowLoginModal,
-        setIsAuthenticated,
         clearError,
-        login,
+        completeLogin,
         logout,
         selectConversation,
         sendMessage,

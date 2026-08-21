@@ -1,7 +1,7 @@
 "use client";
+import { authService } from "@/services/auth.service";
 import { useChat } from "@/context/ChatContext";
 import { useTheme } from "@/context/ThemeContext";
-import { MOCK_USERS } from "@/lib/mockData";
 import {
   ArrowRight,
   MessageSquare,
@@ -14,12 +14,12 @@ import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 
 const LoginScreen: React.FC = () => {
-  const { login, currentUser } = useChat();
+  const { completeLogin } = useChat();
   const router = useRouter();
   const { isDark, toggleTheme } = useTheme();
-  const [phone, setPhone] = useState(currentUser?.phone || "+1 (555) 234-5678");
-  const [name, setName] = useState(currentUser?.name || "Alex Mercer");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const loginMutation = authService.useLogin();
+  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,34 +34,19 @@ const LoginScreen: React.FC = () => {
     }
 
     try {
-      setIsSubmitting(true);
       setFormError(null);
-      await login({ phone: phone.trim(), name: name.trim() });
+      const user = await loginMutation.mutateAsync({
+        phone: phone.trim(),
+        name: name.trim(),
+      });
+      completeLogin(user);
       router.replace("/");
-    } catch (err: any) {
-      setFormError(err.message || "Authentication failed. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSelectDemoUser = async (
-    demoUser: (typeof MOCK_USERS)[0],
-    autoLogin = false,
-  ) => {
-    setPhone(demoUser.phone);
-    setName(demoUser.name);
-    setFormError(null);
-
-    if (autoLogin) {
-      try {
-        setIsSubmitting(true);
-        await login({ phone: demoUser.phone, name: demoUser.name });
-      } catch (err: any) {
-        setFormError(err.message || "Authentication failed.");
-      } finally {
-        setIsSubmitting(false);
-      }
+    } catch (err) {
+      setFormError(
+        err instanceof Error
+          ? err.message
+          : "Authentication failed. Please try again.",
+      );
     }
   };
 
@@ -162,10 +147,10 @@ const LoginScreen: React.FC = () => {
                 <button
                   id="login-submit-btn"
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={loginMutation.isPending}
                   className="w-full py-3 px-4 rounded-xl bg-[#3B82F6] hover:bg-[#2563EB] active:scale-[0.99] disabled:opacity-60 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#3B82F6]/20 transition-all cursor-pointer"
                 >
-                  {isSubmitting ? (
+                  {loginMutation.isPending ? (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
                     <>
