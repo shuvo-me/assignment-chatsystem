@@ -1,3 +1,4 @@
+import QueryClientProvider from "@/components/queryClient/QueryClientProvider";
 import { ChatProvider } from "@/context/ChatContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import type { Metadata } from "next";
@@ -26,9 +27,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ThemeProvider>
-          <ChatProvider>{children}</ChatProvider>
-        </ThemeProvider>
+        <QueryClientProvider>
+          <ThemeProvider>
+            <ChatProvider>{children}</ChatProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
       </body>
     </html>
   );
