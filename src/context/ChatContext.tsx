@@ -1,3 +1,5 @@
+"use client";
+
 import React, {
   createContext,
   useCallback,
@@ -170,6 +172,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsAuthenticated(true);
       setShowLoginModal(false);
       await refreshConversations();
+      document.cookie = `unlocked=true; path=/; max-age=3600; SameSite=Lax`;
     } catch (err: any) {
       setError(err.message || "Login failed");
       throw err;
