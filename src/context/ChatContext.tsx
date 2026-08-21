@@ -9,6 +9,10 @@ import React, {
 } from "react";
 import { chatService } from "../services/chatService";
 import { authService } from "../services/auth.service";
+import {
+  createDirectConversation,
+  fetchConversations,
+} from "../services/chat.service";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
@@ -114,7 +118,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   const refreshConversations = useCallback(async () => {
     try {
       setIsLoadingConversations(true);
-      const list = await chatService.getConversations();
+      const list = await fetchConversations();
       setConversations(list);
 
       // If we don't have an active conversation and screen is desktop, select first conversation
@@ -263,14 +267,27 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     recipientId: string,
   ): Promise<Conversation> => {
     try {
-      const newConv = await chatService.createDirectConversation({
-        recipientId,
-      });
-      const list = await chatService.getConversations();
+      const newId = await createDirectConversation(recipientId);
+      const list = await fetchConversations();
       setConversations(list);
-      await selectConversation(newConv.id);
+      const newConv = list.find((c) => c.id === newId);
+      if (newConv) {
+        setActiveConversation(newConv);
+        setMessages([]);
+      }
       setShowNewChatModal(false);
-      return newConv;
+      return (
+        newConv ?? {
+          id: newId,
+          type: "direct",
+          name: "",
+          participants: [],
+          participantIds: [recipientId],
+          unreadCount: 0,
+          updatedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        }
+      );
     } catch (err: any) {
       setError(err.message || "Failed to start conversation");
       throw err;
