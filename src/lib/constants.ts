@@ -1,0 +1,1 @@
+export const API_BASE_URL = "https://frontend-task-chatapp.onrender.com/api".replace(/\/+$/, "");
