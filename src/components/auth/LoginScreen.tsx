@@ -4,7 +4,6 @@ import { useTheme } from "@/context/ThemeContext";
 import { MOCK_USERS } from "@/lib/mockData";
 import {
   ArrowRight,
-  ExternalLink,
   MessageSquare,
   Moon,
   Phone,
@@ -71,9 +70,9 @@ const LoginScreen: React.FC = () => {
       id="login-screen"
       className="min-h-screen w-screen flex flex-col bg-slate-50 dark:bg-[#0B0E14] text-slate-900 dark:text-[#E2E8F0] overflow-y-auto selection:bg-[#3B82F6]/30 selection:text-white transition-colors"
     >
-      {/* Top Header / Brand Bar */}
-      <header className="w-full border-b border-slate-200 dark:border-[#1E293B] bg-white/80 dark:bg-[#151921]/70 backdrop-blur-md px-6 py-4 flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-3">
+      {/* Main Content Area */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 md:p-10 flex-col ">
+        <div className="flex items-center gap-3 mx-auto mb:16 lg:mb-20">
           <div className="w-9 h-9 rounded-xl bg-linear-to-tr from-[#2563EB] to-[#60A5FA] flex items-center justify-center text-white shadow-lg shadow-[#3B82F6]/20">
             <MessageSquare className="w-5 h-5" />
           </div>
@@ -82,52 +81,10 @@ const LoginScreen: React.FC = () => {
               <span className="font-bold text-base tracking-tight text-slate-900 dark:text-[#E2E8F0]">
                 Chat System
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6] text-[10px] font-semibold">
-                v1.0
-              </span>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-[#94A3B8]">
-              Part 1 Step 2 — Production UI
-            </p>
           </div>
         </div>
-
-        <div className="flex items-center gap-2.5">
-          {/* Theme switcher */}
-          <button
-            id="btn-login-theme-toggle"
-            onClick={toggleTheme}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 dark:hover:bg-[#1E293B]/80 text-xs font-medium text-slate-700 dark:text-[#E2E8F0] transition-colors border border-slate-200 dark:border-[#1E293B] cursor-pointer"
-            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          >
-            {isDark ? (
-              <>
-                <Sun className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden sm:inline">Light</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-3.5 h-3.5 text-slate-600" />
-                <span className="hidden sm:inline">Dark</span>
-              </>
-            )}
-          </button>
-
-          <a
-            href="https://frontend-task-chatapp.onrender.com/docs/"
-            target="_blank"
-            rel="noreferrer"
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 dark:hover:bg-[#1E293B]/80 text-xs font-medium text-slate-700 dark:text-[#94A3B8] hover:text-slate-900 dark:hover:text-[#E2E8F0] transition-colors border border-slate-200 dark:border-[#1E293B]"
-          >
-            <ExternalLink className="w-3.5 h-3.5 text-[#3B82F6]" />
-            <span>Swagger API Specs</span>
-          </a>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 md:p-10">
-        <div className="lg:col-span-6">
+        <div className="lg:col-span-6 flex flex-col gap-8">
           <div
             id="login-card"
             className="bg-white dark:bg-[#151921] rounded-2xl shadow-xl dark:shadow-2xl border border-slate-200 dark:border-[#1E293B] overflow-hidden transition-colors"
@@ -220,13 +177,30 @@ const LoginScreen: React.FC = () => {
               </form>
             </div>
           </div>
+
+          <div className="flex items-center gap-2.5 mx-auto">
+            {/* Theme switcher */}
+            <button
+              id="btn-login-theme-toggle"
+              onClick={toggleTheme}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 dark:hover:bg-[#1E293B]/80 text-xs font-medium text-slate-700 dark:text-[#E2E8F0] transition-colors border border-slate-200 dark:border-[#1E293B] cursor-pointer"
+              title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+              {isDark ? (
+                <>
+                  <Sun className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="hidden sm:inline">Light</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-3.5 h-3.5 text-slate-600" />
+                  <span className="hidden sm:inline">Dark</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="py-4 px-6 border-t border-slate-200 dark:border-[#1E293B] text-center text-xs text-slate-500 dark:text-[#64748B] flex-shrink-0">
-        <p>Chat System Boilerplate &copy; 2026 • Light & Dark Mode Ready</p>
-      </footer>
     </div>
   );
 };
