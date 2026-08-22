@@ -1,6 +1,5 @@
 "use client";
 import {
-  CornerDownRight,
   FileText,
   Image as ImageIcon,
   Paperclip,
@@ -34,8 +33,6 @@ const MessageInput: React.FC = () => {
   const {
     sendMessage,
     isSendingMessage,
-    replyingTo,
-    setReplyingTo,
     activeConversation,
   } = useChat();
 
@@ -50,12 +47,12 @@ const MessageInput: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-focus when active conversation changes or replyingTo changes
+  // Auto-focus when active conversation changes
   useEffect(() => {
     if (activeConversation && textareaRef.current) {
       textareaRef.current.focus();
     }
-  }, [activeConversation?.id, replyingTo]);
+  }, [activeConversation?.id]);
 
   // Click outside to close emoji picker
   useEffect(() => {
@@ -132,30 +129,6 @@ const MessageInput: React.FC = () => {
 
   return (
     <div className="p-3 bg-white dark:bg-[#151921] border-t border-slate-200 dark:border-[#1E293B] relative flex-shrink-0 transition-colors">
-      {/* Replying-To preview bar */}
-      {replyingTo && (
-        <div className="flex items-center justify-between px-3.5 py-2 mb-2 bg-slate-100 dark:bg-[#1E293B] border border-[#3B82F6]/40 rounded-xl text-xs text-slate-800 dark:text-[#E2E8F0] animate-in fade-in slide-in-from-bottom-1 duration-150">
-          <div className="flex items-center gap-2 min-w-0">
-            <CornerDownRight className="w-4 h-4 text-[#3B82F6] flex-shrink-0" />
-            <div className="min-w-0">
-              <span className="font-semibold text-[#3B82F6] block truncate">
-                Replying to {replyingTo.senderName}
-              </span>
-              <span className="text-slate-500 dark:text-[#94A3B8] truncate block text-[11px]">
-                {replyingTo.text}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={() => setReplyingTo(null)}
-            className="p-1 rounded-full text-slate-400 hover:text-slate-700 dark:text-[#94A3B8] dark:hover:text-[#E2E8F0] hover:bg-slate-200 dark:hover:bg-[#151921] transition-colors ml-2 flex-shrink-0 cursor-pointer"
-            title="Cancel reply"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
       {/* Attachment Preview Chip */}
       {attachment && (
         <div className="flex items-center gap-2 px-3 py-1.5 mb-2 bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-[#1E293B] rounded-xl text-xs text-slate-800 dark:text-[#E2E8F0] w-fit animate-in fade-in duration-100">

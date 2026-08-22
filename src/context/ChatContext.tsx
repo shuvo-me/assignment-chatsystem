@@ -39,7 +39,6 @@ interface ChatContextType {
   isSendingMessage: boolean;
   activeFilter: "all" | "direct" | "group" | "unread";
   searchQuery: string;
-  replyingTo: Message | null;
   typingUsers: string[]; // List of user names typing in active conversation
   showInfoDrawer: boolean;
   showNewChatModal: boolean;
@@ -51,7 +50,6 @@ interface ChatContextType {
   // Actions
   setActiveFilter: (filter: "all" | "direct" | "group" | "unread") => void;
   setSearchQuery: (query: string) => void;
-  setReplyingTo: (msg: Message | null) => void;
   setShowInfoDrawer: (show: boolean) => void;
   setShowNewChatModal: (show: boolean) => void;
   setShowNewGroupModal: (show: boolean) => void;
@@ -85,7 +83,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     "all" | "direct" | "group" | "unread"
   >("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
 
   const [showInfoDrawer, setShowInfoDrawer] = useState<boolean>(false);
@@ -149,7 +146,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     const conv = conversations.find((c) => c.id === conversationId);
     if (conv) {
       setActiveConversation(conv);
-      setReplyingTo(null);
       setTypingUsers([]);
     }
     // History loads automatically via chatService.useMessages(activeId)
@@ -188,7 +184,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         text: cleanText,
       });
       applyIncomingMessage(queryClient, newMsg);
-      setReplyingTo(null);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to send message",
@@ -317,7 +312,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         isSendingMessage,
         activeFilter,
         searchQuery,
-        replyingTo,
         typingUsers,
         showInfoDrawer,
         showNewChatModal,
@@ -327,7 +321,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         error,
         setActiveFilter,
         setSearchQuery,
-        setReplyingTo,
         setShowInfoDrawer,
         setShowNewChatModal,
         setShowNewGroupModal,

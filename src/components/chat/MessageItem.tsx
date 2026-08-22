@@ -8,9 +8,7 @@ import {
   CheckCheck,
   Check as CheckIcon,
   Copy,
-  CornerDownRight,
   FileText,
-  Reply,
   Smile,
 } from "lucide-react";
 import React, { useState } from "react";
@@ -33,7 +31,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   isGroup = false,
   senderUser,
 }) => {
-  const { setReplyingTo, toggleReaction, currentUser } = useChat();
+  const { toggleReaction, currentUser } = useChat();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -103,27 +101,6 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               : "bg-white border border-slate-200/90 dark:border-[#1E293B] dark:bg-[#151921] text-slate-800 dark:text-[#E2E8F0] rounded-bl-xs"
           }`}
         >
-          {/* Reply Quote preview */}
-          {message.replyTo && (
-            <div
-              className={`mb-2 p-2 rounded-xl text-xs flex items-start gap-2 border-l-2 ${
-                isMe
-                  ? "bg-blue-700/50 border-white/70 text-blue-50"
-                  : "bg-slate-100 dark:bg-[#1E293B] border-[#3B82F6] text-slate-800 dark:text-[#E2E8F0]"
-              }`}
-            >
-              <CornerDownRight className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 opacity-70" />
-              <div className="min-w-0 flex-1">
-                <span className="font-semibold block text-[11px] opacity-90 truncate">
-                  {message.replyTo.senderName}
-                </span>
-                <span className="line-clamp-2 text-[11px] opacity-80">
-                  {message.replyTo.text}
-                </span>
-              </div>
-            </div>
-          )}
-
           {/* Media Attachment if any */}
           {message.type === "image" && message.mediaUrl && (
             <div className="mb-2 rounded-xl overflow-hidden border border-black/10 dark:border-black/20">
@@ -245,15 +222,6 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               </div>
             )}
           </div>
-
-          {/* Reply */}
-          <button
-            onClick={() => setReplyingTo(message)}
-            className="p-1 rounded-lg text-slate-500 dark:text-[#94A3B8] hover:text-[#3B82F6] hover:bg-slate-100 dark:hover:bg-[#1E293B] transition-colors cursor-pointer"
-            title="Reply"
-          >
-            <Reply className="w-3.5 h-3.5" />
-          </button>
 
           {/* Copy Text */}
           <button
