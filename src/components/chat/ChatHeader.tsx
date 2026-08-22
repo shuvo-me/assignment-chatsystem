@@ -1,6 +1,6 @@
 "use client";
 import { useChat } from "@/context/ChatContext";
-import { ArrowLeft, Info, Search, Sparkles, Users } from "lucide-react";
+import { ArrowLeft, Info, Search, Users } from "lucide-react";
 import React from "react";
 import { Avatar } from "../common/Avatar";
 
@@ -16,8 +16,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ onBackMobile }) => {
     setShowInfoDrawer,
     setShowSearchModal,
     typingUsers,
-    simulateIncomingMessage,
-    triggerTypingSimulation,
   } = useChat();
 
   if (!activeConversation) return null;
@@ -105,30 +103,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ onBackMobile }) => {
 
       {/* Right actions */}
       <div className="flex items-center gap-1">
-        {/* Quick simulator test helpers */}
-        <div className="hidden lg:flex items-center gap-1 mr-2 px-2 py-1 rounded-xl bg-slate-100 dark:bg-[#1E293B]/70 border border-slate-200 dark:border-[#1E293B] text-xs">
-          <span className="text-[11px] font-medium text-slate-500 dark:text-[#94A3B8] mr-1 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-[#3B82F6]" />
-            Test:
-          </span>
-          <button
-            id="btn-quick-sim-msg"
-            onClick={() => simulateIncomingMessage()}
-            className="px-2 py-0.5 rounded-md bg-white dark:bg-[#151921] hover:bg-[#3B82F6]/10 dark:hover:bg-[#3B82F6]/20 text-slate-700 dark:text-[#E2E8F0] hover:text-[#3B82F6] font-medium text-[11px] border border-slate-200 dark:border-[#1E293B] transition-all cursor-pointer shadow-2xs"
-            title="Simulate an incoming message in real-time"
-          >
-            + Incoming Msg
-          </button>
-          <button
-            id="btn-quick-sim-typing"
-            onClick={triggerTypingSimulation}
-            className="px-2 py-0.5 rounded-md bg-white dark:bg-[#151921] hover:bg-[#3B82F6]/10 dark:hover:bg-[#3B82F6]/20 text-slate-700 dark:text-[#E2E8F0] hover:text-[#3B82F6] font-medium text-[11px] border border-slate-200 dark:border-[#1E293B] transition-all cursor-pointer shadow-2xs"
-            title="Simulate contact typing"
-          >
-            Typing
-          </button>
-        </div>
-
         <button
           id="btn-search-in-chat"
           onClick={() => setShowSearchModal(true)}

@@ -2,23 +2,28 @@
 
 import React, {
   createContext,
-  useCallback,
   useContext,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
-import { chatService } from "../services/chatService";
+import axios from "axios";
+import { chatService as legacyChatService } from "../services/chatService";
 import { authService } from "../services/auth.service";
 import {
-  createDirectConversation,
-  fetchConversations,
+  applyIncomingMessage,
+  chatService,
+  normalizeMessage,
+  type ApiMessage,
 } from "../services/chat.service";
+import { connectSocket, disconnectSocket } from "@/lib/socket";
+import type { Socket } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   Conversation,
   Message,
-  MessageType,
   User,
 } from "../types/chat";
 
@@ -56,24 +61,14 @@ interface ChatContextType {
   completeLogin: (user: User) => void;
   logout: () => Promise<void>;
   selectConversation: (conversationId: string | null) => Promise<void>;
-  sendMessage: (
-    text: string,
-    type?: MessageType,
-    mediaUrl?: string,
-    fileName?: string,
-  ) => Promise<void>;
+  sendMessage: (text: string) => Promise<void>;
   toggleReaction: (messageId: string, emoji: string) => Promise<void>;
   createDirectChat: (recipientId: string) => Promise<Conversation>;
   createGroupChat: (
     name: string,
     participantIds: string[],
     topic?: string,
-  ) => Promise<Conversation>;
-
-  // Real-time Simulation helpers
-  simulateIncomingMessage: (customText?: string) => Promise<void>;
-  triggerTypingSimulation: () => void;
-  resetAllData: () => void;
+  ) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -82,15 +77,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [pendingUser, setPendingUser] = useState<User | null>(null);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] =
     useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-
-  const [isLoadingConversations, setIsLoadingConversations] =
-    useState<boolean>(true);
-  const [isLoadingMessages, setIsLoadingMessages] = useState<boolean>(false);
-  const [isSendingMessage, setIsSendingMessage] = useState<boolean>(false);
 
   const [activeFilter, setActiveFilter] = useState<
     "all" | "direct" | "group" | "unread"
@@ -106,77 +94,69 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Ref so async callbacks always read the fresh active conversation
+  const activeConversationRef = useRef<Conversation | null>(null);
+  useEffect(() => {
+    activeConversationRef.current = activeConversation;
+  }, [activeConversation]);
+
   const logoutMutation = authService.useLogout();
   const meQuery = authService.useMe();
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  const currentUser = pendingUser ?? meQuery.data ?? chatService.getCurrentUser();
+  const currentUser =
+    pendingUser ?? meQuery.data ?? legacyChatService.getCurrentUser();
   const isAuthenticated = Boolean(pendingUser || meQuery.data);
 
-  // Load conversations initially
-  const refreshConversations = useCallback(async () => {
-    try {
-      setIsLoadingConversations(true);
-      const list = await fetchConversations();
-      setConversations(list);
+  // Chat data lives in the React Query cache (chatService hooks)
+  const conversationsQuery = chatService.useConversations({
+    enabled: isAuthenticated,
+  });
+  const messagesQuery = chatService.useMessages(activeConversation?.id ?? null);
+  const sendMessageMutation = chatService.useSendMessage();
+  const createDirectChatMutation = chatService.useCreateDirectConversation();
 
-      // If we don't have an active conversation and screen is desktop, select first conversation
-      if (list.length > 0 && !activeConversation) {
-        // select top conversation
-        const first = list[0];
-        setActiveConversation(first);
-        const msgs = await chatService.getMessages(first.id);
-        setMessages(msgs);
-        chatService.markAsRead(first.id);
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to load conversations");
-    } finally {
-      setIsLoadingConversations(false);
-    }
-  }, [activeConversation]);
+  const conversations = useMemo(
+    () => conversationsQuery.data ?? [],
+    [conversationsQuery.data],
+  );
+  const messages = useMemo(
+    () => messagesQuery.data ?? [],
+    [messagesQuery.data],
+  );
+  const isLoadingConversations =
+    isAuthenticated && conversationsQuery.isPending;
+  const isLoadingMessages =
+    Boolean(activeConversation) && messagesQuery.isPending;
+  const isSendingMessage = sendMessageMutation.isPending;
 
+  // Auto-select the top conversation once the list is available
   useEffect(() => {
-    refreshConversations();
-  }, []);
+    if (!isAuthenticated || conversations.length === 0) return;
+    if (!activeConversationRef.current) {
+      setActiveConversation(conversations[0]);
+    }
+  }, [isAuthenticated, conversations]);
 
   const selectConversation = async (conversationId: string | null) => {
     if (!conversationId) {
       setActiveConversation(null);
-      setMessages([]);
       return;
     }
 
-    try {
-      setIsLoadingMessages(true);
-      const conv = conversations.find((c) => c.id === conversationId);
-      if (conv) {
-        setActiveConversation(conv);
-        chatService.markAsRead(conversationId);
-        // update local badge
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === conversationId ? { ...c, unreadCount: 0 } : c,
-          ),
-        );
-      }
-
-      const msgs = await chatService.getMessages(conversationId);
-      setMessages(msgs);
+    const conv = conversations.find((c) => c.id === conversationId);
+    if (conv) {
+      setActiveConversation(conv);
       setReplyingTo(null);
       setTypingUsers([]);
-    } catch (err: any) {
-      setError(err.message || "Failed to load messages");
-    } finally {
-      setIsLoadingMessages(false);
     }
+    // History loads automatically via chatService.useMessages(activeId)
   };
 
   const completeLogin = (user: User) => {
     setPendingUser(user);
     setShowLoginModal(false);
-    refreshConversations();
   };
 
   const logout = async () => {
@@ -185,81 +165,59 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch {
       // clear local session even if the request fails
     }
+    disconnectSocket();
     setPendingUser(null);
     queryClient.resetQueries({ queryKey: ["auth", "me"] });
+    queryClient.removeQueries({ queryKey: ["conversations"] });
+    queryClient.removeQueries({ queryKey: ["messages"] });
     setActiveConversation(null);
-    setMessages([]);
     setShowLoginModal(false);
     router.replace("/login");
   };
 
-  const sendMessage = async (
-    text: string,
-    type?: MessageType,
-    mediaUrl?: string,
-    fileName?: string,
-  ) => {
-    if (!activeConversation) return;
+  const sendMessage = async (text: string) => {
+    const conversation = activeConversationRef.current;
+    if (!conversation) return;
     const cleanText = text.trim();
-    if (!cleanText && !mediaUrl) return;
+    if (!cleanText) return;
 
     try {
-      setIsSendingMessage(true);
-      const newMsg = await chatService.sendMessage({
-        conversationId: activeConversation.id,
+      const newMsg = await sendMessageMutation.mutateAsync({
+        conversationId: conversation.id,
         text: cleanText,
-        type,
-        mediaUrl,
-        fileName,
-        replyTo: replyingTo
-          ? {
-              id: replyingTo.id,
-              text: replyingTo.text,
-              senderName: replyingTo.senderName || "Unknown",
-            }
-          : undefined,
       });
-
-      setMessages((prev) => [...prev, newMsg]);
+      applyIncomingMessage(queryClient, newMsg);
       setReplyingTo(null);
-
-      // Refresh list to update ordering and lastMessage
-      const updatedList = await chatService.getConversations();
-      setConversations(updatedList);
-
-      // Simulate a quick auto-response after 2.5 seconds if direct chat to showcase real-time feel
-      if (activeConversation.type === "direct" && Math.random() > 0.4) {
-        setTimeout(() => {
-          triggerTypingSimulation();
-          setTimeout(async () => {
-            if (activeConversation) {
-              await simulateIncomingMessage();
-            }
-          }, 2000);
-        }, 1200);
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to send message");
-    } finally {
-      setIsSendingMessage(false);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to send message",
+      );
     }
   };
 
   const toggleReaction = async (messageId: string, emoji: string) => {
     if (!activeConversation) return;
     try {
-      const updatedMsg = await chatService.toggleReaction(
+      const updatedMsg = await legacyChatService.toggleReaction(
         activeConversation.id,
         messageId,
         emoji,
       );
       if (updatedMsg) {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === messageId ? { ...updatedMsg } : m)),
+        queryClient.setQueryData<Message[]>(
+          ["messages", activeConversation.id],
+          (prev) =>
+            prev
+              ? prev.map((m) =>
+                  m.id === messageId ? { ...updatedMsg } : m,
+                )
+              : prev,
         );
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to update reaction");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update reaction",
+      );
     }
   };
 
@@ -267,13 +225,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     recipientId: string,
   ): Promise<Conversation> => {
     try {
-      const newId = await createDirectConversation(recipientId);
-      const list = await fetchConversations();
-      setConversations(list);
+      const newId =
+        await createDirectChatMutation.mutateAsync(recipientId);
+      await queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      const list =
+        queryClient.getQueryData<Conversation[]>(["conversations"]) ?? [];
       const newConv = list.find((c) => c.id === newId);
       if (newConv) {
         setActiveConversation(newConv);
-        setMessages([]);
       }
       setShowNewChatModal(false);
       return (
@@ -288,8 +247,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
           createdAt: new Date().toISOString(),
         }
       );
-    } catch (err: any) {
-      setError(err.message || "Failed to start conversation");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to start conversation",
+      );
       throw err;
     }
   };
@@ -298,63 +261,61 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     name: string,
     participantIds: string[],
     topic?: string,
-  ): Promise<Conversation> => {
+  ): Promise<void> => {
     try {
-      const newConv = await chatService.createGroupConversation({
+      // still mock-backed until the group round; refresh real list afterwards
+      await legacyChatService.createGroupConversation({
         name,
         participantIds,
         topic,
       });
-      const list = await chatService.getConversations();
-      setConversations(list);
-      await selectConversation(newConv.id);
+      await queryClient.invalidateQueries({ queryKey: ["conversations"] });
       setShowNewGroupModal(false);
-      return newConv;
-    } catch (err: any) {
-      setError(err.message || "Failed to create group");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to create group",
+      );
       throw err;
     }
   };
 
-  const simulateIncomingMessage = async (customText?: string) => {
-    if (!activeConversation) return;
-    try {
-      const newMsg = await chatService.simulateIncomingMessage(
-        activeConversation.id,
-        customText,
-      );
-      setMessages((prev) => [...prev, newMsg]);
-      const list = await chatService.getConversations();
-      setConversations(list);
-      setTypingUsers([]);
-    } catch (err: any) {
-      setError(err.message || "Simulation error");
-    }
-  };
-
-  const triggerTypingSimulation = () => {
-    if (!activeConversation) return;
-    const otherMember = activeConversation.participants.find(
-      (p) => p.id !== currentUser.id,
-    );
-    const typingName = otherMember ? otherMember.name.split(" ")[0] : "Someone";
-    setTypingUsers([typingName]);
-
-    setTimeout(() => {
-      setTypingUsers([]);
-    }, 3500);
-  };
-
-  const resetAllData = () => {
-    chatService.resetToDefaults();
-    setPendingUser(null);
-    setActiveConversation(null);
-    setMessages([]);
-    setReplyingTo(null);
-    refreshConversations();
-  };
-
   const clearError = () => setError(null);
+
+  // Real-time socket connection: connect while authenticated, rebind on auth change
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let disposed = false;
+    let boundSocket: Socket | null = null;
+
+    const bind = async () => {
+      try {
+        const res = await axios.get("/api/auth/token");
+        if (disposed) return;
+        const sock = connectSocket(res.data.token);
+        boundSocket = sock;
+
+        sock.on("message:new", (rawMsg: ApiMessage) => {
+          applyIncomingMessage(queryClient, normalizeMessage(rawMsg));
+        });
+
+        sock.on("conversation:updated", () => {
+          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        });
+      } catch {
+        // token unavailable — stay offline until auth state changes again
+      }
+    };
+
+    bind();
+
+    return () => {
+      disposed = true;
+      boundSocket?.off("message:new");
+      boundSocket?.off("conversation:updated");
+      disconnectSocket();
+    };
+  }, [isAuthenticated, queryClient]);
 
   return (
     <ChatContext.Provider
@@ -393,9 +354,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         toggleReaction,
         createDirectChat,
         createGroupChat,
-        simulateIncomingMessage,
-        triggerTypingSimulation,
-        resetAllData,
       }}
     >
       {children}

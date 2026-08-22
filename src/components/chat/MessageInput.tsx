@@ -78,9 +78,6 @@ const MessageInput: React.FC = () => {
     if (isMessageEmpty || isSendingMessage) return;
 
     const messageText = text.trim();
-    const mediaUrl = attachment?.url;
-    const fileName = attachment?.name;
-    const msgType = attachment?.type || "text";
 
     // Clear state immediately
     setText("");
@@ -92,7 +89,7 @@ const MessageInput: React.FC = () => {
       textareaRef.current.style.height = "auto";
     }
 
-    await sendMessage(messageText, msgType, mediaUrl, fileName);
+    await sendMessage(messageText);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

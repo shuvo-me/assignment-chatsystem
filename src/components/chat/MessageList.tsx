@@ -143,11 +143,9 @@ const MessageList: React.FC = () => {
             !nextMessage || nextMessage.senderId !== message.senderId;
 
           // Find sender details if group chat
-          const senderUser = isGroup
-            ? activeConversation.participants.find(
-                (p) => p.id === message.senderId,
-              )
-            : undefined;
+          const senderUser = activeConversation.participants.find(
+            (p) => p.id === message.senderId,
+          );
 
           return (
             <React.Fragment key={message.id}>

@@ -1,3 +1,8 @@
+import {
+  useMutation,
+  useQuery,
+  type QueryClient,
+} from "@tanstack/react-query";
 import axios, { isAxiosError } from "axios";
 import type { Conversation, Message, User } from "@/types/chat";
 
@@ -26,6 +31,26 @@ interface ApiConversation {
   createdBy?: string;
   admins?: string[];
   participants?: ApiUser[];
+}
+
+export interface ApiMessage {
+  _id: string;
+  conversation: string;
+  sender: string;
+  text: string;
+  createdAt: string;
+}
+
+export function normalizeMessage(apiMsg: ApiMessage): Message {
+  return {
+    id: apiMsg._id,
+    conversationId: apiMsg.conversation,
+    senderId: apiMsg.sender,
+    text: apiMsg.text,
+    timestamp: apiMsg.createdAt,
+    status: "sent",
+    type: "text",
+  };
 }
 
 function normalizeParticipant(apiUser: ApiUser): User {
@@ -91,7 +116,7 @@ function toServiceError(err: unknown, fallback: string): Error {
   return new Error("Something went wrong. Please try again.");
 }
 
-export async function fetchConversations(): Promise<Conversation[]> {
+async function fetchConversations(): Promise<Conversation[]> {
   try {
     const res = await axios.get("/api/conversations");
     return ((res.data?.data ?? []) as ApiConversation[]).map(
@@ -105,7 +130,7 @@ export async function fetchConversations(): Promise<Conversation[]> {
   }
 }
 
-export async function createDirectConversation(
+async function createDirectConversation(
   userId: string,
 ): Promise<string> {
   try {
@@ -118,3 +143,119 @@ export async function createDirectConversation(
     );
   }
 }
+
+async function fetchMessages(
+  conversationId: string,
+): Promise<Message[]> {
+  try {
+    const res = await axios.get(
+      `/api/conversations/${conversationId}/messages`,
+    );
+    // upstream returns newest-first; normalize to oldest-first for rendering
+    return ((res.data?.messages ?? []) as ApiMessage[])
+      .map(normalizeMessage)
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+      );
+  } catch (err) {
+    throw toServiceError(err, "Could not load messages. Please try again.");
+  }
+}
+
+async function sendMessageRequest(
+  conversationId: string,
+  text: string,
+): Promise<Message> {
+  try {
+    const res = await axios.post("/api/messages", { conversationId, text });
+    return normalizeMessage(res.data);
+  } catch (err) {
+    throw toServiceError(err, "Failed to send message. Please try again.");
+  }
+}
+
+// --- Imperative cache helpers (used by ChatContext + socket handlers) ---
+
+export function bumpConversationPreview(
+  queryClient: QueryClient,
+  msg: Message,
+): void {
+  queryClient.setQueryData<Conversation[]>(["conversations"], (prev) => {
+    if (!prev) return prev;
+    const target = prev.find((c) => c.id === msg.conversationId);
+    if (!target) return prev;
+    const updated: Conversation = {
+      ...target,
+      lastMessage: msg,
+      updatedAt: msg.timestamp,
+    };
+    return [updated, ...prev.filter((c) => c.id !== updated.id)];
+  });
+}
+
+export function applyIncomingMessage(
+  queryClient: QueryClient,
+  incoming: Message,
+): void {
+  // Append into the message history cache, deduping self-echoes
+  queryClient.setQueryData<Message[]>(
+    ["messages", incoming.conversationId],
+    (prev) => {
+      if (!prev) return prev;
+      return prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming];
+    },
+  );
+
+  const knownConversations = queryClient.getQueryData<
+    Conversation[] | undefined
+  >(["conversations"]);
+
+  if (!knownConversations?.some((c) => c.id === incoming.conversationId)) {
+    // Conversation we don't have yet (someone started a chat with us)
+    queryClient.invalidateQueries({ queryKey: ["conversations"] });
+  }
+
+  bumpConversationPreview(queryClient, incoming);
+}
+
+// --- Service hooks (authService-style convention) ---
+
+export const chatService = {
+  useConversations(opts?: { enabled?: boolean }) {
+    return useQuery({
+      queryKey: ["conversations"],
+      queryFn: fetchConversations,
+      enabled: opts?.enabled,
+      staleTime: 30 * 1000,
+    });
+  },
+
+  useMessages(conversationId: string | null) {
+    return useQuery({
+      queryKey: ["messages", conversationId],
+      queryFn: () => fetchMessages(conversationId as string),
+      enabled: Boolean(conversationId),
+      // socket + send handlers keep this cache fresh; never refetch on remount
+      staleTime: Infinity,
+    });
+  },
+
+  useCreateDirectConversation() {
+    return useMutation({
+      mutationFn: createDirectConversation,
+    });
+  },
+
+  useSendMessage() {
+    return useMutation({
+      mutationFn: ({
+        conversationId,
+        text,
+      }: {
+        conversationId: string;
+        text: string;
+      }) => sendMessageRequest(conversationId, text),
+    });
+  },
+};

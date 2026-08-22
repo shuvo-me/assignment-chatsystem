@@ -70,7 +70,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         <div className="flex-shrink-0 w-8 h-8 mb-1">
           {showAvatar ? (
             <Avatar
-              name={message.senderName || "User"}
+              name={senderUser?.name || "User"}
               avatarUrl={message.senderAvatar || senderUser?.avatarUrl}
               color={senderUser?.color || "#3B82F6"}
               size="sm"
@@ -174,14 +174,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             {isMe && (
               <span className="inline-flex items-center">
                 {message.status === "read" ? (
-                  <CheckCheck className="w-3.5 h-3.5 text-white" title="Read" />
+                  <CheckCheck className="w-3.5 h-3.5 text-white" />
                 ) : message.status === "delivered" ? (
-                  <CheckCheck
-                    className="w-3.5 h-3.5 text-blue-200"
-                    title="Delivered"
-                  />
+                  <CheckCheck className="w-3.5 h-3.5 text-blue-200" />
                 ) : message.status === "sent" ? (
-                  <Check className="w-3.5 h-3.5 text-blue-200" title="Sent" />
+                  <Check className="w-3.5 h-3.5 text-blue-200" />
                 ) : (
                   <span className="w-2 h-2 rounded-full border border-white border-t-transparent animate-spin" />
                 )}
