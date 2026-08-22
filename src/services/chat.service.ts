@@ -1,15 +1,15 @@
-import {
-  useMutation,
-  useQuery,
-  type QueryClient,
-} from "@tanstack/react-query";
-import axios, { isAxiosError } from "axios";
 import type {
   Conversation,
   CreateGroupRequest,
   Message,
   User,
 } from "@/types/chat";
+import {
+  useMutation,
+  useQuery,
+  type QueryClient,
+} from "@tanstack/react-query";
+import axios, { isAxiosError } from "axios";
 
 interface ApiUser {
   _id: string;
@@ -44,6 +44,7 @@ export interface ApiMessage {
   sender: string;
   text: string;
   createdAt: string;
+  id?: string;
 }
 
 export function normalizeMessage(apiMsg: ApiMessage): Message {
@@ -296,8 +297,10 @@ export function applyIncomingMessage(
   queryClient.setQueryData<Message[]>(
     ["messages", incoming.conversationId],
     (prev) => {
+
       if (!prev) return prev;
-      return prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming];
+      const newMessages = prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming];
+      return newMessages;
     },
   );
 
@@ -342,8 +345,8 @@ export function applyLocalReaction(
         reactions =
           existing !== undefined
             ? reactions.map((r) =>
-                r.emoji === emoji ? { ...r, users: [...r.users, userId] } : r,
-              )
+              r.emoji === emoji ? { ...r, users: [...r.users, userId] } : r,
+            )
             : [...reactions, { emoji, count: 1, users: [userId] }];
       }
 
@@ -383,8 +386,7 @@ export const chatService = {
       queryKey: ["messages", conversationId],
       queryFn: () => fetchMessages(conversationId as string),
       enabled: Boolean(conversationId),
-      // socket + send handlers keep this cache fresh; never refetch on remount
-      staleTime: Infinity,
+      staleTime: 30 * 1000,
     });
   },
 

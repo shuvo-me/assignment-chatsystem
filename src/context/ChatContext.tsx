@@ -1,5 +1,9 @@
 "use client";
 
+import { connectSocket, disconnectSocket } from "@/lib/socket";
+import { useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { useRouter } from "next/navigation";
 import React, {
   createContext,
   useContext,
@@ -8,7 +12,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import axios from "axios";
+import type { Socket } from "socket.io-client";
 import { authService } from "../services/auth.service";
 import {
   applyIncomingMessage,
@@ -18,15 +22,7 @@ import {
   patchConversation,
   type ApiMessage,
 } from "../services/chat.service";
-import { connectSocket, disconnectSocket } from "@/lib/socket";
-import type { Socket } from "socket.io-client";
-import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import {
-  Conversation,
-  Message,
-  User,
-} from "../types/chat";
+import { Conversation, Message, User } from "../types/chat";
 
 interface ChatContextType {
   currentUser: User;
@@ -200,9 +196,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       });
       applyIncomingMessage(queryClient, newMsg);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to send message",
-      );
+      setError(err instanceof Error ? err.message : "Failed to send message");
     }
   };
 
@@ -222,8 +216,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     recipientId: string,
   ): Promise<Conversation> => {
     try {
-      const newId =
-        await createDirectChatMutation.mutateAsync(recipientId);
+      const newId = await createDirectChatMutation.mutateAsync(recipientId);
       await queryClient.invalidateQueries({ queryKey: ["conversations"] });
       const list =
         queryClient.getQueryData<Conversation[]>(["conversations"]) ?? [];
@@ -246,9 +239,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       );
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to start conversation",
+        err instanceof Error ? err.message : "Failed to start conversation",
       );
       throw err;
     }
@@ -269,9 +260,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
       setShowNewGroupModal(false);
       return newConv;
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to create group",
-      );
+      setError(err instanceof Error ? err.message : "Failed to create group");
       throw err;
     }
   };
@@ -290,9 +279,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         prev?.id === updated.id ? updated : prev,
       );
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to add members",
-      );
+      setError(err instanceof Error ? err.message : "Failed to add members");
       throw err;
     }
   };
@@ -319,9 +306,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         );
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to remove member",
-      );
+      setError(err instanceof Error ? err.message : "Failed to remove member");
       throw err;
     }
   };
@@ -340,9 +325,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         prev?.id === updated.id ? updated : prev,
       );
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to promote member",
-      );
+      setError(err instanceof Error ? err.message : "Failed to promote member");
       throw err;
     }
   };
@@ -376,22 +359,33 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     let boundSocket: Socket | null = null;
 
     const bind = async () => {
-      try {
-        const res = await axios.get("/api/auth/token");
-        if (disposed) return;
-        const sock = connectSocket(res.data.token);
-        boundSocket = sock;
-
-        sock.on("message:new", (rawMsg: ApiMessage) => {
-          applyIncomingMessage(queryClient, normalizeMessage(rawMsg));
-        });
-
-        sock.on("conversation:updated", () => {
-          queryClient.invalidateQueries({ queryKey: ["conversations"] });
-        });
-      } catch {
-        // token unavailable — stay offline until auth state changes again
+      let token: string | undefined;
+      for (let attempt = 0; attempt < 2 && !disposed; attempt++) {
+        try {
+          const res = await axios.get("/api/auth/token");
+          token = res.data.token;
+          break;
+        } catch {
+          if (attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        }
       }
+      if (disposed || !token) return;
+
+      const sock = connectSocket(token);
+      boundSocket = sock;
+
+      sock.on("message:new", (rawMsg: ApiMessage) => {
+        applyIncomingMessage(
+          queryClient,
+          normalizeMessage({ ...rawMsg, _id: rawMsg?.id as string }),
+        );
+      });
+
+      sock.on("conversation:updated", () => {
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      });
     };
 
     bind();
