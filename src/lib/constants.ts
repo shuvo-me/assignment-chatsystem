@@ -1,1 +1,1 @@
-export const API_BASE_URL = "https://frontend-task-chatapp.onrender.com/api".replace(/\/+$/, "");
+export const API_BASE_URL = (process.env.CHAT_API_BASE_URL as string).replace(/\/+$/, "");
