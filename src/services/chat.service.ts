@@ -104,6 +104,7 @@ function normalizeConversation(apiConv: ApiConversation): Conversation {
     updatedAt: apiConv.updatedAt,
     createdAt: apiConv.createdAt ?? apiConv.updatedAt,
     createdBy: apiConv.createdBy,
+    admins: apiConv.admins,
   };
 }
 

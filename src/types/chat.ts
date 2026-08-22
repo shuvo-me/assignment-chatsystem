@@ -60,6 +60,7 @@ export interface Conversation {
     updatedAt: string;
     createdAt: string;
     createdBy?: string;
+    admins?: string[];
     isPinned?: boolean;
     isMuted?: boolean;
     topic?: string;
@@ -83,6 +84,11 @@ export interface CreateGroupConversationPayload {
     participantIds: string[];
     avatarColor?: string;
     topic?: string;
+}
+
+export interface CreateGroupRequest {
+    name: string;
+    participantIds: string[];
 }
 
 export interface LoginPayload {
