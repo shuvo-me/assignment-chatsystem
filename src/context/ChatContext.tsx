@@ -9,7 +9,6 @@ import React, {
   useState,
 } from "react";
 import axios from "axios";
-import { chatService as legacyChatService } from "../services/chatService";
 import { authService } from "../services/auth.service";
 import {
   applyIncomingMessage,
@@ -82,6 +81,8 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
+const FALLBACK_USER: User = { id: "", name: "", phone: "", status: "offline" };
+
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -113,8 +114,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  const currentUser =
-    pendingUser ?? meQuery.data ?? legacyChatService.getCurrentUser();
+  const currentUser = pendingUser ?? meQuery.data ?? FALLBACK_USER;
   const isAuthenticated = Boolean(pendingUser || meQuery.data);
 
   // Chat data lives in the React Query cache (chatService hooks)

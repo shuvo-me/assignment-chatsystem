@@ -66,26 +66,6 @@ export interface Conversation {
     topic?: string;
 }
 
-export interface SendMessagePayload {
-    conversationId: string;
-    text: string;
-    replyTo?: ReplyReference;
-    type?: MessageType;
-    mediaUrl?: string;
-    fileName?: string;
-}
-
-export interface CreateDirectConversationPayload {
-    recipientId: string;
-}
-
-export interface CreateGroupConversationPayload {
-    name: string;
-    participantIds: string[];
-    avatarColor?: string;
-    topic?: string;
-}
-
 export interface CreateGroupRequest {
     name: string;
     participantIds: string[];
