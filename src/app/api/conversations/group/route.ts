@@ -28,9 +28,10 @@ export async function POST(request: NextRequest) {
       )
     : [];
 
-  if (!name || participantIds.length === 0) {
+  // upstream rule: a group needs at least 3 members (creator + 2 others)
+  if (!name || participantIds.length < 2) {
     return NextResponse.json(
-      { message: "Group name and at least one other member are required." },
+      { message: "A group needs at least 3 members including you." },
       { status: 400 },
     );
   }
@@ -45,8 +46,10 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     if (isAxiosError(err)) {
       const status = err.response?.status ?? 502;
+      const upstream = err.response?.data?.error;
       const message =
-        err.response?.data?.error?.message ??
+        upstream?.details?.[0]?.message ??
+        upstream?.message ??
         err.response?.data?.message ??
         "Chat service is unreachable right now. Please try again.";
       return NextResponse.json({ message }, { status });

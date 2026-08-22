@@ -28,6 +28,10 @@ export const NewGroupModal: React.FC<NewGroupModalProps> = ({
 
   if (!isOpen) return null;
 
+  // upstream rule: a group needs at least 3 members (you + 2 others)
+  const canSubmit =
+    groupName.trim().length > 0 && selectedUsers.length >= 2;
+
   const resetAndClose = () => {
     setGroupName("");
     setSearchQuery("");
@@ -239,7 +243,12 @@ export const NewGroupModal: React.FC<NewGroupModalProps> = ({
           <div className="pt-1">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !canSubmit}
+              title={
+                canSubmit
+                  ? "Create group"
+                  : "Add a group name and select at least 2 members"
+              }
               className="w-full py-2.5 rounded-xl bg-[#3B82F6] hover:bg-[#2563EB] disabled:opacity-60 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
             >
               {isSubmitting ? (
