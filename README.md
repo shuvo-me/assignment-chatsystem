@@ -17,6 +17,21 @@ Full endpoint reference: [`API.md`](./API.md).
 - **Emoji reactions** — WhatsApp-style one-reaction-per-user toggling on any message.
 - **Smart message pane** — date dividers, avatar grouping, unread pill while scrolled up, auto-scroll behavior that never yanks you away from history.
 
+## Design Language — One Product, Two Surfaces
+
+The landing page deliberately uses the **same colors, font family, and structural design as the chat application itself** — this is a choice, not an accident:
+
+- **Shared palette** — both surfaces are built on the same slate neutral system (`#0B0E14` / `#151921` / `#1E293B`) with the identical `#3B82F6` blue accent, and the blue→indigo gradient is reserved for primary actions everywhere.
+- **Shared typography** — Inter is loaded once in the root layout and drives every screen, marketing and app alike.
+- **Shared structure** — rounded-2xl panels, hairline slate borders, soft shadows, lucide iconography, and dark-mode parity through the same `.dark` theme tokens.
+
+Why:
+
+1. **Honest first impression.** The landing page is the product's front door; when the chat UI opens looking exactly like what was advertised, there is no bait-and-switch moment. Visual continuity keeps expectations accurate — visitors can judge the real interface before signing up.
+2. **One design system, not two.** Reusing the token set means color and typography decisions live in one place (`globals.css` + Tailwind utilities). Redesigns propagate to both surfaces automatically, so the marketing site can never drift out of sync with the app.
+3. **Trust through coherence.** A single identity across public and authenticated surfaces reads as one mature product rather than a demo stapled to an advertisement — which matters for a tool whose whole pitch is polish and reliability.
+4. **Cheap consistency.** Because both surfaces already share the theme tokens and utility classes, keeping them visually identical cost zero extra CSS.
+
 ## Tech Stack & Why
 
 | Technology | Role | Why it's here |
@@ -89,6 +104,8 @@ Key conventions:
 
 ### What I'd improve with more time
 
+- **Unified state layer — move Context-API state into TanStack Query.** Today only *server* state lives in React Query, while UI state (`activeConversation`, modal flags, filters, typing users) still flows through `ChatContext`. A future refactor can migrate even this into the query cache under keys like `["ui", …]` via `useQuery`/`setQueryData`, making TanStack Query the single state container for the whole app. Benefits: **selective re-renders** (components subscribe per key instead of every Context consumer re-rendering on any change), **one mental model** where all state is inspectable in React Query Devtools, **free persistence/hydration** through `persistQueryClient`, and no provider nesting or prop drilling — structural sharing dedupes renders automatically. Honest caveat: plain Context remains fine for trivial low-frequency flags; the payoff grows with any state that benefits from caching, invalidation, and persistence.
+- **PWA support.** Add a web manifest and service worker (e.g., Serwist) so the chat installs to the home screen and boots from an offline app shell — cache-first static assets, network-first API calls. Natural extensions: an outbox queue that flushes sends made offline once connectivity returns (pairs directly with the existing reconnect reconciliation), and Web Push notifications for incoming messages when the tab is closed.
 - **Automated tests** — Playwright end-to-end flows (login → chat → group admin) and unit tests for the cache helpers; currently the largest risk area given zero coverage.
 - **Message pagination** — a load-older UI keyed off cursors, the moment upstream adds paging parameters.
 - **Cross-user reactions** — wire the existing local shape to real endpoints when available.
