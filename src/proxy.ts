@@ -6,6 +6,13 @@ export async function proxy(request: NextRequest) {
 
     const { pathname } = request.nextUrl;
 
+    if (hasSession && pathname === "/login") {
+        const chatUrl = new URL("/chat", request.url);
+        const res = NextResponse.redirect(chatUrl);
+        res.headers.set("Cache-Control", "no-store");
+        return res;
+    }
+
     if (!hasSession && pathname.startsWith("/chat")) {
         const loginUrl = new URL("/login", request.url);
         const res = NextResponse.redirect(loginUrl);
