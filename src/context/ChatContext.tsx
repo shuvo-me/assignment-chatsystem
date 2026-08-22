@@ -13,6 +13,7 @@ import { chatService as legacyChatService } from "../services/chatService";
 import { authService } from "../services/auth.service";
 import {
   applyIncomingMessage,
+  applyLocalReaction,
   chatService,
   normalizeMessage,
   type ApiMessage,
@@ -62,7 +63,7 @@ interface ChatContextType {
   logout: () => Promise<void>;
   selectConversation: (conversationId: string | null) => Promise<void>;
   sendMessage: (text: string) => Promise<void>;
-  toggleReaction: (messageId: string, emoji: string) => Promise<void>;
+  toggleReaction: (messageId: string, emoji: string) => void;
   createDirectChat: (recipientId: string) => Promise<Conversation>;
   createGroupChat: (
     name: string,
@@ -195,30 +196,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const toggleReaction = async (messageId: string, emoji: string) => {
-    if (!activeConversation) return;
-    try {
-      const updatedMsg = await legacyChatService.toggleReaction(
-        activeConversation.id,
-        messageId,
-        emoji,
-      );
-      if (updatedMsg) {
-        queryClient.setQueryData<Message[]>(
-          ["messages", activeConversation.id],
-          (prev) =>
-            prev
-              ? prev.map((m) =>
-                  m.id === messageId ? { ...updatedMsg } : m,
-                )
-              : prev,
-        );
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to update reaction",
-      );
-    }
+  const toggleReaction = (messageId: string, emoji: string) => {
+    const conversation = activeConversationRef.current;
+    if (!conversation || !currentUser?.id) return;
+    applyLocalReaction(
+      queryClient,
+      conversation.id,
+      messageId,
+      currentUser.id,
+      emoji,
+    );
   };
 
   const createDirectChat = async (

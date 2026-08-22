@@ -219,6 +219,48 @@ export function applyIncomingMessage(
   bumpConversationPreview(queryClient, incoming);
 }
 
+export function applyLocalReaction(
+  queryClient: QueryClient,
+  conversationId: string,
+  messageId: string,
+  userId: string,
+  emoji: string,
+): void {
+  queryClient.setQueryData<Message[]>(["messages", conversationId], (prev) => {
+    if (!prev) return prev;
+    return prev.map((m) => {
+      if (m.id !== messageId) return m;
+
+      const isToggleOff = (m.reactions ?? []).some(
+        (r) => r.emoji === emoji && r.users.includes(userId),
+      );
+
+      let reactions = (m.reactions ?? [])
+        .map((r) =>
+          r.users.includes(userId)
+            ? { ...r, users: r.users.filter((u) => u !== userId) }
+            : r,
+        )
+        .filter((r) => r.users.length > 0);
+
+      if (!isToggleOff) {
+        const existing = reactions.find((r) => r.emoji === emoji);
+        reactions =
+          existing !== undefined
+            ? reactions.map((r) =>
+                r.emoji === emoji ? { ...r, users: [...r.users, userId] } : r,
+              )
+            : [...reactions, { emoji, count: 1, users: [userId] }];
+      }
+
+      return {
+        ...m,
+        reactions: reactions.map((r) => ({ ...r, count: r.users.length })),
+      };
+    });
+  });
+}
+
 // --- Service hooks (authService-style convention) ---
 
 export const chatService = {
