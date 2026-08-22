@@ -1,7 +1,7 @@
 "use client";
-import { authService } from "@/services/auth.service";
 import { useChat } from "@/context/ChatContext";
 import { useTheme } from "@/context/ThemeContext";
+import { authService } from "@/services/auth.service";
 import {
   ArrowRight,
   MessageSquare,
@@ -10,12 +10,13 @@ import {
   Sun,
   User as UserIcon,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import React, { useState } from "react";
 
 const LoginScreen: React.FC = () => {
   const { completeLogin } = useChat();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isDark, toggleTheme } = useTheme();
   const loginMutation = authService.useLogin();
   const [phone, setPhone] = useState("");
@@ -40,7 +41,7 @@ const LoginScreen: React.FC = () => {
         name: name.trim(),
       });
       completeLogin(user);
-      router.replace("/");
+      window.location.href = "/chat";
     } catch (err) {
       setFormError(
         err instanceof Error

@@ -1,24 +1,21 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     const hasSession = request.cookies.has("chat_token");
+
     const { pathname } = request.nextUrl;
 
-    const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
-
-
-    if (!hasSession && !isAuthPage) {
+    if (!hasSession && pathname.startsWith("/chat")) {
         const loginUrl = new URL("/login", request.url);
-        loginUrl.searchParams.set("from", pathname);
-        return NextResponse.redirect(loginUrl);
+        const res = NextResponse.redirect(loginUrl);
+        res.headers.set("Cache-Control", "no-store");
+        return res;
     }
 
-    if (hasSession && isAuthPage) {
-        return NextResponse.redirect(new URL("/", request.url));
-    }
-
-    return NextResponse.next();
+    const res = NextResponse.next();
+    res.headers.set("Cache-Control", "no-store");
+    return res;
 }
 
 export const config = {

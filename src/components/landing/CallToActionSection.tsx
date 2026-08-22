@@ -1,4 +1,5 @@
 import { ArrowRight, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import Link from "next/link";
 import React from "react";
 
 interface CallToActionSectionProps {}
@@ -53,13 +54,15 @@ export const CallToActionSection: React.FC<CallToActionSectionProps> = ({}) => {
           data-aos-delay="250"
           className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto"
         >
-          <button
+          <Link
             id="cta-launch-btn"
+            prefetch={false}
+            href="/chat"
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 active:scale-98 text-white font-bold text-sm sm:text-base shadow-xl shadow-blue-600/30 transition-all cursor-pointer group"
           >
             <span>Launch Live Chat App</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </button>
+          </Link>
         </div>
 
         {/* Trust Badges */}

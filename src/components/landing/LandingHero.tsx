@@ -1,5 +1,6 @@
 "use client";
 import { ArrowRight } from "lucide-react";
+import Link from "next/link";
 import React from "react";
 // import { InteractiveChatSandbox } from "./InteractiveChatSandbox";
 
@@ -49,13 +50,15 @@ export const LandingHero: React.FC<LandingHeroProps> = ({}) => {
             data-aos-delay="200"
             className="pt-2 flex items-center justify-center"
           >
-            <button
+            <Link
               id="hero-launch-primary-btn"
+              prefetch={false}
+              href="/chat"
               className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 active:scale-98 text-white font-semibold text-sm shadow-xl shadow-blue-600/30 transition-all cursor-pointer group"
             >
               <span>Launch Live Chat Application</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
+            </Link>
           </div>
 
           {/* Quick Metrics Bar */}
