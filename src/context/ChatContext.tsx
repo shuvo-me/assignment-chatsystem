@@ -16,6 +16,7 @@ import {
   applyLocalReaction,
   chatService,
   normalizeMessage,
+  patchConversation,
   type ApiMessage,
 } from "../services/chat.service";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
@@ -66,8 +67,17 @@ interface ChatContextType {
   createGroupChat: (
     name: string,
     participantIds: string[],
-    topic?: string,
+  ) => Promise<Conversation>;
+  addGroupParticipants: (
+    conversationId: string,
+    userIds: string[],
   ) => Promise<void>;
+  removeGroupParticipant: (
+    conversationId: string,
+    userId: string,
+  ) => Promise<void>;
+  promoteToAdmin: (conversationId: string, userId: string) => Promise<void>;
+  renameGroup: (conversationId: string, name: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -114,6 +124,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   const messagesQuery = chatService.useMessages(activeConversation?.id ?? null);
   const sendMessageMutation = chatService.useSendMessage();
   const createDirectChatMutation = chatService.useCreateDirectConversation();
+  const createGroupMutation = chatService.useCreateGroup();
+  const addParticipantsMutation = chatService.useAddGroupParticipants();
+  const removeParticipantMutation = chatService.useRemoveGroupParticipant();
+  const promoteAdminMutation = chatService.usePromoteGroupAdmin();
+  const renameGroupMutation = chatService.useRenameGroup();
 
   const conversations = useMemo(
     () => conversationsQuery.data ?? [],
@@ -242,21 +257,111 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
   const createGroupChat = async (
     name: string,
     participantIds: string[],
-    topic?: string,
-  ): Promise<void> => {
+  ): Promise<Conversation> => {
     try {
-      // still mock-backed until the group round; refresh real list afterwards
-      await legacyChatService.createGroupConversation({
+      const newConv = await createGroupMutation.mutateAsync({
         name,
         participantIds,
-        topic,
       });
       await queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      patchConversation(queryClient, newConv);
+      setActiveConversation(newConv);
       setShowNewGroupModal(false);
+      return newConv;
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to create group",
       );
+      throw err;
+    }
+  };
+
+  const addGroupParticipants = async (
+    conversationId: string,
+    userIds: string[],
+  ): Promise<void> => {
+    try {
+      const updated = await addParticipantsMutation.mutateAsync({
+        conversationId,
+        userIds,
+      });
+      patchConversation(queryClient, updated);
+      setActiveConversation((prev) =>
+        prev?.id === updated.id ? updated : prev,
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to add members",
+      );
+      throw err;
+    }
+  };
+
+  const removeGroupParticipant = async (
+    conversationId: string,
+    userId: string,
+  ): Promise<void> => {
+    try {
+      const isSelf = userId === currentUser.id;
+      const updated = await removeParticipantMutation.mutateAsync({
+        conversationId,
+        userId,
+      });
+      if (isSelf) {
+        // Left the group: drop it from cache entirely and clear selection
+        await queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        setActiveConversation(null);
+        setShowInfoDrawer(false);
+      } else {
+        patchConversation(queryClient, updated);
+        setActiveConversation((prev) =>
+          prev?.id === updated.id ? updated : prev,
+        );
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to remove member",
+      );
+      throw err;
+    }
+  };
+
+  const promoteToAdmin = async (
+    conversationId: string,
+    userId: string,
+  ): Promise<void> => {
+    try {
+      const updated = await promoteAdminMutation.mutateAsync({
+        conversationId,
+        userId,
+      });
+      patchConversation(queryClient, updated);
+      setActiveConversation((prev) =>
+        prev?.id === updated.id ? updated : prev,
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to promote member",
+      );
+      throw err;
+    }
+  };
+
+  const renameGroup = async (
+    conversationId: string,
+    name: string,
+  ): Promise<void> => {
+    try {
+      const updated = await renameGroupMutation.mutateAsync({
+        conversationId,
+        name,
+      });
+      patchConversation(queryClient, updated);
+      setActiveConversation((prev) =>
+        prev?.id === updated.id ? updated : prev,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to rename group");
       throw err;
     }
   };
@@ -334,6 +439,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
         toggleReaction,
         createDirectChat,
         createGroupChat,
+        addGroupParticipants,
+        removeGroupParticipant,
+        promoteToAdmin,
+        renameGroup,
       }}
     >
       {children}
