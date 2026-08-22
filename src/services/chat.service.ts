@@ -4,7 +4,12 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import axios, { isAxiosError } from "axios";
-import type { Conversation, Message, User } from "@/types/chat";
+import type {
+  Conversation,
+  CreateGroupRequest,
+  Message,
+  User,
+} from "@/types/chat";
 
 interface ApiUser {
   _id: string;
@@ -145,6 +150,94 @@ async function createDirectConversation(
   }
 }
 
+// All group mutation endpoints return the full updated conversation object
+async function normalizeConversationResponse(res: {
+  data: unknown;
+}): Promise<Conversation> {
+  return normalizeConversation(res.data as ApiConversation);
+}
+
+async function createGroup(
+  name: string,
+  participantIds: string[],
+): Promise<Conversation> {
+  try {
+    const res = await axios.post("/api/conversations/group", {
+      name,
+      participantIds,
+    } satisfies CreateGroupRequest);
+    return normalizeConversationResponse(res);
+  } catch (err) {
+    throw toServiceError(err, "Failed to create group. Please try again.");
+  }
+}
+
+async function addGroupParticipants(
+  conversationId: string,
+  userIds: string[],
+): Promise<Conversation> {
+  try {
+    const res = await axios.post(
+      `/api/conversations/${conversationId}/participants`,
+      { userIds },
+    );
+    return normalizeConversationResponse(res);
+  } catch (err) {
+    throw toServiceError(
+      err,
+      "Failed to add members. Please try again.",
+    );
+  }
+}
+
+async function removeGroupParticipant(
+  conversationId: string,
+  userId: string,
+): Promise<Conversation> {
+  try {
+    const res = await axios.delete(
+      `/api/conversations/${conversationId}/participants/${userId}`,
+    );
+    return normalizeConversationResponse(res);
+  } catch (err) {
+    throw toServiceError(
+      err,
+      "Failed to remove member. Please try again.",
+    );
+  }
+}
+
+async function promoteGroupAdmin(
+  conversationId: string,
+  userId: string,
+): Promise<Conversation> {
+  try {
+    const res = await axios.post(`/api/conversations/${conversationId}/admins`, {
+      userId,
+    });
+    return normalizeConversationResponse(res);
+  } catch (err) {
+    throw toServiceError(
+      err,
+      "Failed to promote member. Please try again.",
+    );
+  }
+}
+
+async function renameGroup(
+  conversationId: string,
+  name: string,
+): Promise<Conversation> {
+  try {
+    const res = await axios.patch(`/api/conversations/${conversationId}`, {
+      name,
+    });
+    return normalizeConversationResponse(res);
+  } catch (err) {
+    throw toServiceError(err, "Failed to rename group. Please try again.");
+  }
+}
+
 async function fetchMessages(
   conversationId: string,
 ): Promise<Message[]> {
@@ -262,6 +355,17 @@ export function applyLocalReaction(
   });
 }
 
+// Replace a single conversation in the list cache in place (no reordering).
+export function patchConversation(
+  queryClient: QueryClient,
+  updated: Conversation,
+): void {
+  queryClient.setQueryData<Conversation[]>(["conversations"], (prev) => {
+    if (!prev || !prev.some((c) => c.id === updated.id)) return prev;
+    return prev.map((c) => (c.id === updated.id ? updated : c));
+  });
+}
+
 // --- Service hooks (authService-style convention) ---
 
 export const chatService = {
@@ -299,6 +403,61 @@ export const chatService = {
         conversationId: string;
         text: string;
       }) => sendMessageRequest(conversationId, text),
+    });
+  },
+
+  useCreateGroup() {
+    return useMutation({
+      mutationFn: ({ name, participantIds }: CreateGroupRequest) =>
+        createGroup(name, participantIds),
+    });
+  },
+
+  useAddGroupParticipants() {
+    return useMutation({
+      mutationFn: ({
+        conversationId,
+        userIds,
+      }: {
+        conversationId: string;
+        userIds: string[];
+      }) => addGroupParticipants(conversationId, userIds),
+    });
+  },
+
+  useRemoveGroupParticipant() {
+    return useMutation({
+      mutationFn: ({
+        conversationId,
+        userId,
+      }: {
+        conversationId: string;
+        userId: string;
+      }) => removeGroupParticipant(conversationId, userId),
+    });
+  },
+
+  usePromoteGroupAdmin() {
+    return useMutation({
+      mutationFn: ({
+        conversationId,
+        userId,
+      }: {
+        conversationId: string;
+        userId: string;
+      }) => promoteGroupAdmin(conversationId, userId),
+    });
+  },
+
+  useRenameGroup() {
+    return useMutation({
+      mutationFn: ({
+        conversationId,
+        name,
+      }: {
+        conversationId: string;
+        name: string;
+      }) => renameGroup(conversationId, name),
     });
   },
 };
